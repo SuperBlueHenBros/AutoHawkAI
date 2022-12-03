@@ -2,6 +2,8 @@ import numpy as np
 import middletier
 import logging
 
+IS_TRAINING = False
+
 # setup some basic config info
 config_info = middletier.config.check() # data pulled from config.ini
 game_path = config_info['directories']['data'] + "/NES/Excitebike.json"     # path to our game info (addreses and such)
@@ -37,10 +39,16 @@ print("opening outfile.npy")
 q_values = np.load('outfile.npy')
 print("done opening outfile.npy")
 
-#These are just setting up parameters we will need later
-epsilon = 0.9 #percent of times we take best action
-discount = 0.9 #discount factor for future rewards
-learn_rate = 0.9 #rate AI learns
+if IS_TRAINING:
+    #These are just setting up parameters we will need later
+    epsilon = 0.9 #percent of times we take best action
+    discount = 0.9 #discount factor for future rewards
+    learn_rate = 0.9 #rate AI learns
+else:
+    #These are just setting up parameters we will need later
+    epsilon = 1 #percent of times we take best action
+    discount = 0 #discount factor for future rewards
+    learn_rate = 0 #rate AI learns
 
 #function to get the next action. 90% of the time it will select the best option. The remaining 10% it will select a random action in order to explore more options.
 def get_next_action(speed, terrain, status, lane, air, angle,epsilon):
@@ -167,7 +175,7 @@ client.conn.save_state()
 for episode in range(num_of_games): #The number of games we want to have it play. 
     print(f"starting episode {episode}/{num_of_games}")
 
-    action_index = np.random.randint(4)
+    action_index = np.random.randint(4) # assign a random input to start with
     speed, terrain, status, lane, air, angle  = next_frame(action_index) #This is setting those variables equal to the values from the game
 
     # speed, terrain, status, lane, air, angle  = np.random.randint(4), np.random.randint(6),np.random.randint(4),np.random.randint(6),np.random.randint(2),np.random.randint(11)
