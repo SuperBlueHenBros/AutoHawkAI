@@ -1,6 +1,5 @@
 import numpy as np
 import middletier
-import time
 import logging
 
 # setup some basic config info
@@ -47,12 +46,9 @@ def get_next_action(speed, terrain, status, lane, air, angle,epsilon):
     else:
         return np.random.randint(len(actions))
 
-def next_frame(action_index): #This is for getting the next frame in the game. We may have the game do the same action for multiple frames.
-    for i in range(5):
-        client.conn.advance_frame()
-        client.send_input('P1 A')
-        client.send_input('P1 B')
-
+def next_frame(action_index, frames: int = 1): #This is for getting the next frame in the game. We may have the game do the same action for multiple frames.
+    # press (0) and then release (1) the given button
+    for i in range(2):
         if actions[action_index] == 'up': 
             client.send_input('P1 Up')
         elif actions[action_index] == 'down':
@@ -61,6 +57,9 @@ def next_frame(action_index): #This is for getting the next frame in the game. W
             client.send_input('P1 Left')
         elif actions[action_index] == 'right':
             client.send_input('P1 Right')
+
+        for frame in range(frames):
+            client.conn.advance_frame()
         
     # loop through each address, read the state of the memory
     for addr in client.game.addresses:
@@ -157,8 +156,10 @@ def convert_values(speed, terrain, status, lane, air, angle):
 
 num_of_games = 100
 
+client.send_input('P1 A', state=True)
+client.send_input('P1 B', state=True)
 
-
+client.conn.save_state()
 
 for episode in range(num_of_games): #The number of games we want to have it play. 
     print("starting episode")
@@ -170,14 +171,14 @@ for episode in range(num_of_games): #The number of games we want to have it play
 
 
     # while not game_over: #While the current race is still going
-    for i in range(5000):  
+    for i in range(550):  
         action_index = get_next_action(speed, terrain, status, lane, air, angle, epsilon) 
 
         old_speed, old_terrain, old_status, old_lane, old_air, old_angle = speed, terrain, status, lane, air, angle
 
-        speed, terrain, status, lane, air, angle = next_frame(action_index) #This line updates the parameters after passing the desired action and getting the next frame
+        speed, terrain, status, lane, air, angle = next_frame(action_index, 5) #This line updates the parameters after passing the desired action and getting the next frame
 
-        reward = speed - old_speed # changed from 3
+        reward = speed - 3 # changed from 3
 
         old_q_value = q_values[old_speed, old_terrain, old_status, old_lane, old_air, old_angle, action_index]
         
@@ -185,4 +186,6 @@ for episode in range(num_of_games): #The number of games we want to have it play
 
         new_q_value = old_q_value + (learn_rate * temporal_difference)
         q_values[old_speed, old_terrain, old_status, old_lane, old_air, old_angle, action_index] = new_q_value
+
+    client.conn.load_state()
     print("ending episode")
