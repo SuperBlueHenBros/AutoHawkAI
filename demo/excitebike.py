@@ -1,6 +1,7 @@
 import numpy as np
 import middletier
 import logging
+import matplotlib.pyplot
 
 IS_TRAINING = False
 
@@ -30,6 +31,9 @@ for map in client.game.mapping:
 
 #These are the actions we can take
 actions = ['up','down','left','right']
+
+episode_speed = 0
+common_speed = []
 
 #Initializing the q matrix
 #Those numbers are just the range of the inputs we are using so speed could be the one that says 100. So the speed could be anywhere from 1 to 100.
@@ -166,6 +170,9 @@ def convert_values(speed, terrain, status, lane, air, angle):
     return speed, terrain, status, lane, air, angle
 
 num_of_games = 10
+num_frames = 500
+
+matplotlib.pyplot.axis([0, 10, 0, 4])
 
 client.send_input('P1 A', state=True)
 client.send_input('P1 B', state=True)
@@ -180,9 +187,10 @@ for episode in range(num_of_games): #The number of games we want to have it play
 
     # speed, terrain, status, lane, air, angle  = np.random.randint(4), np.random.randint(6),np.random.randint(4),np.random.randint(6),np.random.randint(2),np.random.randint(11)
 
+    episode_speed = 0
 
     # while not game_over: #While the current race is still going
-    for i in range(500):  
+    for i in range(num_frames):  
         action_index = get_next_action(speed, terrain, status, lane, air, angle, epsilon) 
 
         old_speed, old_terrain, old_status, old_lane, old_air, old_angle = speed, terrain, status, lane, air, angle
@@ -191,6 +199,8 @@ for episode in range(num_of_games): #The number of games we want to have it play
 
         reward = speed - 3 # changed from 3
 
+        episode_speed += speed
+
         old_q_value = q_values[old_speed, old_terrain, old_status, old_lane, old_air, old_angle, action_index]
         
         temporal_difference = reward + (discount * np.max(q_values[speed, terrain, status, lane, air, angle])) - old_q_value
@@ -198,9 +208,17 @@ for episode in range(num_of_games): #The number of games we want to have it play
         new_q_value = old_q_value + (learn_rate * temporal_difference)
         q_values[old_speed, old_terrain, old_status, old_lane, old_air, old_angle, action_index] = new_q_value
 
+    episode_average = episode_speed / num_frames
+    common_speed.append(episode_average)
     client.conn.load_state()
     print(f"ending episode {episode}/{num_of_games}")
+
+    print(f"episode average: {episode_average}")
+    matplotlib.pyplot.scatter(episode, episode_average)
+    matplotlib.pyplot.pause(0.05)
 
 print("saving to file")
 np.save('outfile', q_values)
 print("file saved")
+
+matplotlib.pyplot.show()
