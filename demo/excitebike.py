@@ -32,7 +32,10 @@ actions = ['up','down','left','right']
 #Initializing the q matrix
 #Those numbers are just the range of the inputs we are using so speed could be the one that says 100. So the speed could be anywhere from 1 to 100.
 #Actions in order: speed, terrain, status, lane, air, angle
-q_values = np.zeros((5,6,4,9,2,11,len(actions))) #Change to new dimensions
+# q_values = np.zeros((5,6,4,9,2,11,len(actions))) #Change to new dimensions
+print("opening outfile.npy")
+q_values = np.load('outfile.npy')
+print("done opening outfile.npy")
 
 #These are just setting up parameters we will need later
 epsilon = 0.9 #percent of times we take best action
@@ -154,7 +157,7 @@ def convert_values(speed, terrain, status, lane, air, angle):
     
     return speed, terrain, status, lane, air, angle
 
-num_of_games = 100
+num_of_games = 10
 
 client.send_input('P1 A', state=True)
 client.send_input('P1 B', state=True)
@@ -162,21 +165,21 @@ client.send_input('P1 B', state=True)
 client.conn.save_state()
 
 for episode in range(num_of_games): #The number of games we want to have it play. 
-    print("starting episode")
+    print(f"starting episode {episode}/{num_of_games}")
 
-    action_index = 0
+    action_index = np.random.randint(4)
     speed, terrain, status, lane, air, angle  = next_frame(action_index) #This is setting those variables equal to the values from the game
 
     # speed, terrain, status, lane, air, angle  = np.random.randint(4), np.random.randint(6),np.random.randint(4),np.random.randint(6),np.random.randint(2),np.random.randint(11)
 
 
     # while not game_over: #While the current race is still going
-    for i in range(550):  
+    for i in range(500):  
         action_index = get_next_action(speed, terrain, status, lane, air, angle, epsilon) 
 
         old_speed, old_terrain, old_status, old_lane, old_air, old_angle = speed, terrain, status, lane, air, angle
 
-        speed, terrain, status, lane, air, angle = next_frame(action_index, 5) #This line updates the parameters after passing the desired action and getting the next frame
+        speed, terrain, status, lane, air, angle = next_frame(action_index, 3) #This line updates the parameters after passing the desired action and getting the next frame
 
         reward = speed - 3 # changed from 3
 
@@ -188,4 +191,8 @@ for episode in range(num_of_games): #The number of games we want to have it play
         q_values[old_speed, old_terrain, old_status, old_lane, old_air, old_angle, action_index] = new_q_value
 
     client.conn.load_state()
-    print("ending episode")
+    print(f"ending episode {episode}/{num_of_games}")
+
+print("saving to file")
+np.save('outfile', q_values)
+print("file saved")
