@@ -172,7 +172,14 @@ def convert_values(speed, terrain, status, lane, air, angle):
 num_of_games = 10
 num_frames = 500
 
-matplotlib.pyplot.axis([0, 10, 0, 4])
+# matplotlib.pyplot.axis([0, num_of_games, 0, 4])
+matplotlib.pyplot.ion()
+fig = matplotlib.pyplot.figure()
+ax = matplotlib.pyplot.subplot(1,1,1)
+ax.set_xlabel('Episode')
+ax.set_ylabel('Average Speed')
+ax.plot(runs, common_speed, 'ko', markersize = 1)
+fig.show()
 
 client.send_input('P1 A', state=True)
 client.send_input('P1 B', state=True)
@@ -210,15 +217,22 @@ for episode in range(num_of_games): #The number of games we want to have it play
 
     episode_average = episode_speed / num_frames
     common_speed.append(episode_average)
+    runs.append(episode)
+    
     client.conn.load_state()
     print(f"ending episode {episode}/{num_of_games}")
 
     print(f"episode average: {episode_average}")
-    matplotlib.pyplot.scatter(episode, episode_average)
-    matplotlib.pyplot.pause(0.05)
+    # matplotlib.pyplot.scatter(episode, episode_average)
+    # matplotlib.pyplot.pause(0.05)
+    ax.lines[0].set_data(runs, common_speed)
+    ax.relim()  
+    ax.autoscale_view() 
+    fig.canvas.flush_events()
 
 print("saving to file")
 np.save('outfile', q_values)
 print("file saved")
 
-matplotlib.pyplot.show()
+while True:
+    matplotlib.pyplot.show()
