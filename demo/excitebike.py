@@ -5,6 +5,7 @@ import matplotlib.pyplot
 import os.path
 
 IS_TRAINING = True
+IS_RANDOM = False
 
 # setup some basic config info
 config_info = middletier.config.check() # data pulled from config.ini
@@ -31,7 +32,7 @@ for map in client.game.mapping:
     memory_map[map['name']] = int(map['address'], base=16)
 
 #These are the actions we can take
-actions = ['up','down','left','right']
+actions = ['pass','up','down','left','right']
 
 episode_speed = 0
 common_speed = []
@@ -52,7 +53,12 @@ if IS_TRAINING:
     #These are just setting up parameters we will need later
     epsilon = 0.9 #percent of times we take best action
     discount = 0.9 #discount factor for future rewards
-    learn_rate = 0.9 #rate AI learns
+    learn_rate = 0.1 #rate AI learns
+elif IS_RANDOM:
+    #These are just setting up parameters we will need later
+    epsilon = 0 #percent of times we take best action
+    discount = 0 #discount factor for future rewards
+    learn_rate = 0 #rate AI learns
 else:
     #These are just setting up parameters we will need later
     epsilon = 1 #percent of times we take best action
@@ -77,6 +83,8 @@ def next_frame(action_index, frames: int = 1): #This is for getting the next fra
             client.send_input('P1 Left')
         elif actions[action_index] == 'right':
             client.send_input('P1 Right')
+        elif actions[action_index] == 'pass':
+            pass
 
         for frame in range(frames):
             client.conn.advance_frame()
@@ -183,7 +191,7 @@ fig = matplotlib.pyplot.figure()
 ax = matplotlib.pyplot.subplot(1,1,1)
 ax.set_xlabel('Episode')
 ax.set_ylabel('Average Speed')
-ax.plot(runs, common_speed, 'ko', markersize = 1)
+ax.plot(runs, common_speed, 'ko-', markersize = 4)
 fig.show()
 
 client.send_input('P1 A', state=True)
@@ -207,9 +215,10 @@ for episode in range(num_of_games): #The number of games we want to have it play
 
         old_speed, old_terrain, old_status, old_lane, old_air, old_angle = speed, terrain, status, lane, air, angle
 
-        speed, terrain, status, lane, air, angle = next_frame(action_index, 3) #This line updates the parameters after passing the desired action and getting the next frame
+        speed, terrain, status, lane, air, angle = next_frame(action_index, 1) #This line updates the parameters after passing the desired action and getting the next frame
 
-        reward = speed - 3 # changed from 3
+        reward = speed - 3
+        logger.debug(f"action: {actions[action_index]}, reward: {reward}, speed: {speed}, terrain: {terrain}, status: {status}, lane: {lane}, air: {air}, angle: {angle}")
 
         episode_speed += speed
 
@@ -238,6 +247,8 @@ for episode in range(num_of_games): #The number of games we want to have it play
 print("saving to file")
 np.save('outfile', q_values)
 print("file saved")
+
+print(f"average speed: {sum(common_speed) / len(common_speed)}")
 
 while True:
     matplotlib.pyplot.show()
