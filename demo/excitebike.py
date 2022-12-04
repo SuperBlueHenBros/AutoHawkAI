@@ -2,8 +2,9 @@ import numpy as np
 import middletier
 import logging
 import matplotlib.pyplot
+import os.path
 
-IS_TRAINING = False
+IS_TRAINING = True
 
 # setup some basic config info
 config_info = middletier.config.check() # data pulled from config.ini
@@ -34,13 +35,17 @@ actions = ['up','down','left','right']
 
 episode_speed = 0
 common_speed = []
+runs = []
 
 #Initializing the q matrix
 #Those numbers are just the range of the inputs we are using so speed could be the one that says 100. So the speed could be anywhere from 1 to 100.
 #Actions in order: speed, terrain, status, lane, air, angle
-# q_values = np.zeros((5,6,4,9,2,11,len(actions))) #Change to new dimensions
 print("opening outfile.npy")
-q_values = np.load('outfile.npy')
+if os.path.exists('outfile.npy'):
+    q_values = np.load('outfile.npy')
+else:
+    print("doesn't exist, making a new one")
+    q_values = np.zeros((5,6,4,9,2,11,len(actions))) #Change to new dimensions
 print("done opening outfile.npy")
 
 if IS_TRAINING:
