@@ -47,7 +47,7 @@ if os.path.exists('outfile.npy'):
     q_values = np.load('outfile.npy')
 else:
     logger.info("doesn't exist, making a new one")
-    q_values = np.zeros((5,6,4,9,2,11,len(actions))) #Change to new dimensions
+    q_values = np.zeros((5,6,5,9,2,11,len(actions))) #Change to new dimensions
 logger.info("done opening outfile.npy")
 
 if IS_TRAINING:
@@ -69,7 +69,11 @@ else:
 #function to get the next action. 90% of the time it will select the best option. The remaining 10% it will select a random action in order to explore more options.
 def get_next_action(speed, terrain, status, lane, air, angle,epsilon):
     if np.random.random() < epsilon:
-        return np.argmax(q_values[speed, terrain, status, lane, air, angle])
+        try:
+            return np.argmax(q_values[speed, terrain, status, lane, air, angle])
+        except Exception as e:
+            logging.warning(e)
+            return np.random.randint(len(actions))
     else:
         return np.random.randint(len(actions))
 
@@ -130,6 +134,8 @@ def convert_values(speed, terrain, status, lane, air, angle):
     #Conversion of status
     if status == 4:
         status = 3
+    elif status > 4:
+        status = 4
 
     #Lanes
     if lane < 14:
