@@ -37,6 +37,7 @@ actions = ['pass','up','down','left','right']
 episode_speed = 0
 common_speed = []
 runs = []
+running_avg = []
 
 #Initializing the q matrix
 #Those numbers are just the range of the inputs we are using so speed could be the one that says 100. So the speed could be anywhere from 1 to 100.
@@ -53,7 +54,7 @@ if IS_TRAINING:
     #These are just setting up parameters we will need later
     epsilon = 0.9 #percent of times we take best action
     discount = 0.9 #discount factor for future rewards
-    learn_rate = 0.1 #rate AI learns
+    learn_rate = 0.9 #rate AI learns
 elif IS_RANDOM:
     #These are just setting up parameters we will need later
     epsilon = 0 #percent of times we take best action
@@ -183,7 +184,7 @@ def convert_values(speed, terrain, status, lane, air, angle):
     return speed, terrain, status, lane, air, angle
 
 num_of_games = 10
-num_frames = 1000
+num_frames = 500
 
 # matplotlib.pyplot.axis([0, num_of_games, 0, 4])
 matplotlib.pyplot.ion()
@@ -191,7 +192,8 @@ fig = matplotlib.pyplot.figure()
 ax = matplotlib.pyplot.subplot(1,1,1)
 ax.set_xlabel('Episode')
 ax.set_ylabel('Average Speed')
-ax.plot(runs, common_speed, 'ko-', markersize = 4)
+ax.plot(runs, common_speed, 'ko', markersize = 4)
+ax.plot(running_avg, common_speed, 'o--', markersize = 8, color='grey')
 fig.show()
 
 client.send_input('P1 A', state=True)
@@ -215,7 +217,7 @@ for episode in range(num_of_games): #The number of games we want to have it play
 
         speed, terrain, status, lane, air, angle = next_frame(action_index, 5) #This line updates the parameters after passing the desired action and getting the next frame
 
-        reward = speed - 3
+        reward = speed - old_speed
         logger.debug(f"action: {actions[action_index]}, reward: {reward}, speed: {speed}, terrain: {terrain}, status: {status}, lane: {lane}, air: {air}, angle: {angle}")
 
         episode_speed += speed
@@ -229,6 +231,7 @@ for episode in range(num_of_games): #The number of games we want to have it play
 
     episode_average = episode_speed / num_frames
     common_speed.append(episode_average)
+    running_avg.append(sum(common_speed) / (episode + 1))
     runs.append(episode)
     
     client.conn.load_state()
@@ -238,6 +241,7 @@ for episode in range(num_of_games): #The number of games we want to have it play
     # matplotlib.pyplot.scatter(episode, episode_average)
     # matplotlib.pyplot.pause(0.05)
     ax.lines[0].set_data(runs, common_speed)
+    ax.lines[1].set_data(runs, running_avg)
     ax.relim()  
     ax.autoscale_view() 
     fig.canvas.flush_events()
