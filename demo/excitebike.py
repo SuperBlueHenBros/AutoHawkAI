@@ -14,7 +14,7 @@ rom_path = "C:/Users/Mike/Documents/Homebrew/NES Games/Excitebike (JU) [!].nes" 
 
 logging.basicConfig()
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # save the main core of the middletier, this is how we'll control most of the program
 client = middletier.Core(game_path, config_info, rom_path=rom_path)
@@ -41,13 +41,13 @@ runs = []
 #Initializing the q matrix
 #Those numbers are just the range of the inputs we are using so speed could be the one that says 100. So the speed could be anywhere from 1 to 100.
 #Actions in order: speed, terrain, status, lane, air, angle
-print("opening outfile.npy")
+logger.info("opening outfile.npy")
 if os.path.exists('outfile.npy'):
     q_values = np.load('outfile.npy')
 else:
-    print("doesn't exist, making a new one")
+    logger.info("doesn't exist, making a new one")
     q_values = np.zeros((5,6,4,9,2,11,len(actions))) #Change to new dimensions
-print("done opening outfile.npy")
+logger.info("done opening outfile.npy")
 
 if IS_TRAINING:
     #These are just setting up parameters we will need later
@@ -183,7 +183,7 @@ def convert_values(speed, terrain, status, lane, air, angle):
     return speed, terrain, status, lane, air, angle
 
 num_of_games = 10
-num_frames = 500
+num_frames = 1000
 
 # matplotlib.pyplot.axis([0, num_of_games, 0, 4])
 matplotlib.pyplot.ion()
@@ -200,7 +200,7 @@ client.send_input('P1 B', state=True)
 client.conn.save_state()
 
 for episode in range(num_of_games): #The number of games we want to have it play. 
-    print(f"starting episode {episode}/{num_of_games}")
+    logger.info(f"starting episode {episode}/{num_of_games}")
 
     action_index = np.random.randint(4) # assign a random input to start with
     speed, terrain, status, lane, air, angle  = next_frame(action_index) #This is setting those variables equal to the values from the game
@@ -209,13 +209,11 @@ for episode in range(num_of_games): #The number of games we want to have it play
 
     episode_speed = 0
 
-    # while not game_over: #While the current race is still going
     for i in range(num_frames):  
         action_index = get_next_action(speed, terrain, status, lane, air, angle, epsilon) 
-
         old_speed, old_terrain, old_status, old_lane, old_air, old_angle = speed, terrain, status, lane, air, angle
 
-        speed, terrain, status, lane, air, angle = next_frame(action_index, 1) #This line updates the parameters after passing the desired action and getting the next frame
+        speed, terrain, status, lane, air, angle = next_frame(action_index, 5) #This line updates the parameters after passing the desired action and getting the next frame
 
         reward = speed - 3
         logger.debug(f"action: {actions[action_index]}, reward: {reward}, speed: {speed}, terrain: {terrain}, status: {status}, lane: {lane}, air: {air}, angle: {angle}")
@@ -234,9 +232,9 @@ for episode in range(num_of_games): #The number of games we want to have it play
     runs.append(episode)
     
     client.conn.load_state()
-    print(f"ending episode {episode}/{num_of_games}")
+    logger.info(f"ending episode {episode}/{num_of_games}")
 
-    print(f"episode average: {episode_average}")
+    logger.info(f"episode average: {episode_average}")
     # matplotlib.pyplot.scatter(episode, episode_average)
     # matplotlib.pyplot.pause(0.05)
     ax.lines[0].set_data(runs, common_speed)
@@ -244,11 +242,11 @@ for episode in range(num_of_games): #The number of games we want to have it play
     ax.autoscale_view() 
     fig.canvas.flush_events()
 
-print("saving to file")
+logger.info("saving to file")
 np.save('outfile', q_values)
-print("file saved")
+logger.info("file saved")
 
-print(f"average speed: {sum(common_speed) / len(common_speed)}")
+logger.info(f"average speed: {sum(common_speed) / len(common_speed)}")
 
 while True:
     matplotlib.pyplot.show()
