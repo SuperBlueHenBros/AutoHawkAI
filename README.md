@@ -1,5 +1,5 @@
-# autohawk-ai
-AI component of our software
+# AutoHawkAI
+AI component of our software. 
 
 ## Usage
 
