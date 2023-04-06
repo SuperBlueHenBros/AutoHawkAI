@@ -10,7 +10,7 @@ IS_RANDOM = False
 # setup some basic config info
 config_info = middletier.config.check() # data pulled from config.ini
 game_path = config_info['directories']['data'] + "/NES/Excitebike.json"     # path to our game info (addreses and such)
-rom_path = "C:/Users/Mike/Documents/Homebrew/NES Games/Excitebike (JU) [!].nes" # path to our ROM
+rom_path = "C:/Users/Mike/Documents/Files/ROMs/NES/Excitebike (JU) [!].nes" # path to our ROM
 
 logging.basicConfig()
 logger = logging.getLogger()
@@ -54,7 +54,7 @@ if IS_TRAINING:
     #These are just setting up parameters we will need later
     epsilon = 0.9 #percent of times we take best action
     discount = 0.9 #discount factor for future rewards
-    learn_rate = 0.9 #rate AI learns
+    learn_rate = 0.8 #rate AI learns
 elif IS_RANDOM:
     #These are just setting up parameters we will need later
     epsilon = 0 #percent of times we take best action
@@ -189,8 +189,8 @@ def convert_values(speed, terrain, status, lane, air, angle):
     
     return speed, terrain, status, lane, air, angle
 
-num_of_games = 10
-num_frames = 500
+num_of_games = 50000
+num_frames = 480
 
 # matplotlib.pyplot.axis([0, num_of_games, 0, 4])
 matplotlib.pyplot.ion()
@@ -198,8 +198,8 @@ fig = matplotlib.pyplot.figure()
 ax = matplotlib.pyplot.subplot(1,1,1)
 ax.set_xlabel('Episode')
 ax.set_ylabel('Average Speed')
-ax.plot(runs, common_speed, 'ko', markersize = 4)
-ax.plot(running_avg, common_speed, 'o--', markersize = 8, color='grey')
+# ax.plot(runs, common_speed, 'ko', markersize = 1)
+ax.plot(running_avg, common_speed, 'o--', markersize = 1, color='grey')
 fig.show()
 
 client.send_input('P1 A', state=True)
@@ -246,8 +246,8 @@ for episode in range(num_of_games): #The number of games we want to have it play
     logger.info(f"episode average: {episode_average}")
     # matplotlib.pyplot.scatter(episode, episode_average)
     # matplotlib.pyplot.pause(0.05)
-    ax.lines[0].set_data(runs, common_speed)
-    ax.lines[1].set_data(runs, running_avg)
+    # ax.lines[0].set_data(runs, common_speed)
+    ax.lines[0].set_data(runs, running_avg)
     ax.relim()  
     ax.autoscale_view() 
     fig.canvas.flush_events()
@@ -258,5 +258,6 @@ logger.info("file saved")
 
 logger.info(f"average speed: {sum(common_speed) / len(common_speed)}")
 
+matplotlib.pyplot.show()
 while True:
-    matplotlib.pyplot.show()
+    matplotlib.pyplot.pause(0.05)
