@@ -22,11 +22,13 @@ def screenshot():
         monitor = {"top": 160, "left": 160, "width": 160, "height": 135}
         #Can lock game screen and add a trim to specific size here
         img = sct.grab(monitor)
-        img = cv2.resize(img, (84, 84))
+        
 
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
 
-        img_array = np.array(gray)
+        img_array = np.array(img)
+        img_array = cv2.resize(img_array, (84, 84))
+        img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2GRAY)
 
     return img_array
 
@@ -117,20 +119,20 @@ def next_frame(action_index, frames: int = 1): #This is for getting the next fra
     images = []
     # press (0) and then release (1) the given button
     for frame in range(frames):
-        if action[action_index] == 0: 
+        if action == 0: 
             client.send_input('P1 Up')
-        elif action[action_index] == 1:
+        elif action == 1:
             client.send_input('P1 Down')
-        elif action[action_index] == 2:
+        elif action == 2:
             client.send_input('P1 Left')
-        elif action[action_index] == 3:
+        elif action == 3:
             client.send_input('P1 Right')
-        # elif action[action_index] == 4:
+        # elif action == 4:
         #     pass
 
         client.conn.advance_frame()
 
-        images[frame] = screenshot() # might need to turn into torch tensor
+        images.append(screenshot()) # might need to turn into torch tensor
 
     # TODO: JUST TAKE WHAT WE NEED
     # loop through each address, read the state of the memory
@@ -147,7 +149,7 @@ def next_frame(action_index, frames: int = 1): #This is for getting the next fra
     
 
 #Frame stacking by pulling image and advancing state 4 times
-reward, screenshots = next_frame(action, frame=4) #doesn't need to get reward each time, the last time is the only one that matters
+reward, screenshots = next_frame(action, frames=4) #doesn't need to get reward each time, the last time is the only one that matters
 
 # TODO: don't do this
 reward -= 2
@@ -174,14 +176,14 @@ while iter < num_iter:
     
     
     #Frame stacking by pulling image and advancing state 4 times
-    reward, screenshots = next_frame(action) #doesn't need to get reward each time, the last time is the only one that matters
+    reward, screenshots = next_frame(action, frames=4) #doesn't need to get reward each time, the last time is the only one that matters
 
     # TODO: don't do this
     reward -= 2
 
     # state_2 = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
     state_2 = torch.Tensor(screenshots)
-    
+
     memory_replay.append((state,action,reward,state_2))
 
     if len(memory_replay) > replay_size:
