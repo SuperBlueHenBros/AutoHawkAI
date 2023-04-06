@@ -113,6 +113,9 @@ memory_map = {}
 for map in client.game.mapping:
     memory_map[map['name']] = int(map['address'], base=16)
 
+client.send_input('P1 A', state=True)
+client.send_input('P1 B', state=True)
+
 #Actual iteration of the AI 
 
 def next_frame(action_index, frames: int = 1): #This is for getting the next frame in the game. We may have the game do the same action for multiple frames.
@@ -158,6 +161,8 @@ reward -= 2
 
 # state = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
 state = torch.Tensor(screenshots)
+
+print(f"state: {state.shape}")
 
 while iter < num_iter:
 
