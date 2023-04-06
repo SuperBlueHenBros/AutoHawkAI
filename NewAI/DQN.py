@@ -3,13 +3,32 @@ from numpy.core.fromnumeric import argmax
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchsummary import summary
+# from torchsummary import summary
 import cv2
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import random
 import os
 from os import listdir
+# import numpy as np
+import middletier
+import logging
+import matplotlib.pyplot
+import os.path
+import mss 
+
+def screenshot():
+    with mss.mss() as sct:
+        monitor = {"top": 160, "left": 160, "width": 160, "height": 135}
+        #Can lock game screen and add a trim to specific size here
+        img = sct.grab(monitor)
+        img = cv2.resize(img, (84, 84))
+
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        img_array = np.array(gray)
+
+    return img_array
 
 
 class Net(nn.Module):
@@ -46,7 +65,11 @@ class Net(nn.Module):
       # Output
       output = x
       return output
+    
 myNetwork = Net()
+
+loss = nn.MSELoss()
+optimizer = torch.optim.Adam(myNetwork.parameters(), lr=1e-3)
 
 #Putting the model on the gpu if it is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -64,27 +87,75 @@ gamma = 0.99
 action = 0
 
 
+# setup some basic config info
+config_info = middletier.config.check() # data pulled from config.ini
+game_path = config_info['directories']['data'] + "/NES/Excitebike.json"     # path to our game info (addreses and such)
+rom_path = "C:/Users/Mike/Documents/Files/ROMs/NES/Excitebike (JU) [!].nes" # path to our ROM
+
+logging.basicConfig()
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# save the main core of the middletier, this is how we'll control most of the program
+client = middletier.Core(game_path, config_info, rom_path=rom_path)
+
+# start up the emulator, specify the duration that we want to wait before continuing in seconds
+client.spawn_emulator(startup_delay=10, load_state=True)
+
+# initialize a local map of all addresses to read, and their current state
+memory_state = {}
+for addr in client.game.addresses:
+    memory_state[addr] = 'None'
+
+memory_map = {}
+for map in client.game.mapping:
+    memory_map[map['name']] = int(map['address'], base=16)
+
 #Actual iteration of the AI 
 
+def next_frame(action_index, frames: int = 1): #This is for getting the next frame in the game. We may have the game do the same action for multiple frames.
+    images = []
+    # press (0) and then release (1) the given button
+    for frame in range(frames):
+        if action[action_index] == 0: 
+            client.send_input('P1 Up')
+        elif action[action_index] == 1:
+            client.send_input('P1 Down')
+        elif action[action_index] == 2:
+            client.send_input('P1 Left')
+        elif action[action_index] == 3:
+            client.send_input('P1 Right')
+        # elif action[action_index] == 4:
+        #     pass
+
+        client.conn.advance_frame()
+
+        images[frame] = screenshot() # might need to turn into torch tensor
+
+    # TODO: JUST TAKE WHAT WE NEED
+    # loop through each address, read the state of the memory
+    for addr in client.game.addresses:
+        read_val = client.conn.read_byte(addr)
+        try:
+            memory_state[addr] = int(read_val.decode('ascii')[1:])
+        except AttributeError:
+            memory_state[addr] = 0
+
+    speed = memory_state[memory_map['Velocity (Bike)']]
+
+    return speed, images
+    
+
 #Frame stacking by pulling image and advancing state 4 times
-reward = get_next_state(action)#doesn't need to get reward each time, the last time is the only one that matters
-#pull image data and preprocess image
-image_1 = get_image
-image_1 = prep_image    
-reward = get_next_state(action)#doesn't need to get reward each time, the last time is the only one that matters
-image_2 = get_image
-image_2 = prep_image
-reward = get_next_state(action)#doesn't need to get reward each time, the last time is the only one that matters
-image_3 = get_image
-image_3 = prep_image
-reward = get_next_state(action)#doesn't need to get reward each time, the last time is the only one that matters
-image_4 = get_image
-image_4 = prep_image
+reward, screenshots = next_frame(action, frame=4) #doesn't need to get reward each time, the last time is the only one that matters
 
-state = torch.stack((image_1,image_2,image_3,image_4),0)
+# TODO: don't do this
+reward -= 2
 
+# [[image1],[image2],[image3],[image4]]
 
-
+# state = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
+state = torch.Tensor(screenshots)
 
 while iter < num_iter:
 
@@ -103,22 +174,14 @@ while iter < num_iter:
     
     
     #Frame stacking by pulling image and advancing state 4 times
-    reward = get_next_state(action)#doesn't need to get reward each time, the last time is the only one that matters
-    #pull image data and preprocess image
-    image_1 = get_image
-    image_1 = prep_image    
-    reward = get_next_state(action)#doesn't need to get reward each time, the last time is the only one that matters
-    image_2 = get_image
-    image_2 = prep_image
-    reward = get_next_state(action)#doesn't need to get reward each time, the last time is the only one that matters
-    image_3 = get_image
-    image_3 = prep_image
-    reward = get_next_state(action)#doesn't need to get reward each time, the last time is the only one that matters
-    image_4 = get_image
-    image_4 = prep_image
-    
-    state_2 = torch.stack((image_1,image_2,image_3,image_4),0)
+    reward, screenshots = next_frame(action) #doesn't need to get reward each time, the last time is the only one that matters
 
+    # TODO: don't do this
+    reward -= 2
+
+    # state_2 = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
+    state_2 = torch.Tensor(screenshots)
+    
     memory_replay.append((state,action,reward,state_2))
 
     if len(memory_replay) > replay_size:
