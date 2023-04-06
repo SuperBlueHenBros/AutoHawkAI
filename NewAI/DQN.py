@@ -169,7 +169,7 @@ while iter < num_iter:
     
     #Determining whether the action is random or ideal
     if np.random.random() < epsilon:
-        action = argmax(output[0])
+        action = argmax(output.detach().numpy())
     else:
         action = np.random.randint(num_actions)
     
@@ -194,8 +194,8 @@ while iter < num_iter:
 
         #Creating the separate batches
         state_batch = torch.cat(tuple(d[0] for d in minibatch))
-        action_batch = torch.cat(tuple(d[1] for d in minibatch))
-        reward_batch = torch.cat(tuple(d[2] for d in minibatch))
+        action_batch = torch.tensor(tuple(d[1] for d in minibatch))
+        reward_batch = torch.tensor(tuple(d[2] for d in minibatch))
         state_1_batch = torch.cat(tuple(d[3] for d in minibatch))
 
         if torch.cuda.is_available():
