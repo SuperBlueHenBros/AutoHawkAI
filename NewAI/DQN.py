@@ -169,7 +169,7 @@ while iter < num_iter:
     
     #Determining whether the action is random or ideal
     if np.random.random() < epsilon:
-        action = argmax(output)
+        action = argmax(output[0])
     else:
         action = np.random.randint(num_actions)
     
@@ -189,32 +189,33 @@ while iter < num_iter:
     if len(memory_replay) > replay_size:
         memory_replay.pop()
     
-    minibatch = random.sample(memory_replay, min(len(memory_replay)), replay_size)
+    if len(memory_replay) >= minibatch_size:
+        minibatch = random.sample(memory_replay, minibatch_size)
 
-    #Creating the separate batches
-    state_batch = torch.cat(tuple(d[0] for d in minibatch))
-    action_batch = torch.cat(tuple(d[1] for d in minibatch))
-    reward_batch = torch.cat(tuple(d[2] for d in minibatch))
-    state_1_batch = torch.cat(tuple(d[3] for d in minibatch))
+        #Creating the separate batches
+        state_batch = torch.cat(tuple(d[0] for d in minibatch))
+        action_batch = torch.cat(tuple(d[1] for d in minibatch))
+        reward_batch = torch.cat(tuple(d[2] for d in minibatch))
+        state_1_batch = torch.cat(tuple(d[3] for d in minibatch))
 
-    if torch.cuda.is_available():
-        state_batch = state_batch.to(device)
-        action_batch = action_batch.to(device)
-        reward_batch = reward_batch.to(device)
-        state_2_batch = state_1_batch.to(device)
+        if torch.cuda.is_available():
+            state_batch = state_batch.to(device)
+            action_batch = action_batch.to(device)
+            reward_batch = reward_batch.to(device)
+            state_2_batch = state_1_batch.to(device)
 
 
-    #Q values are obtained from the neural network
-    q_values = myNetwork(state_batch).gather(1, action_batch.long().unsqueeze(1))
-    next_q_values = myNetwork(state_2_batch).max(1)[0].detach()
-    expected_q_values = reward_batch + gamma * next_q_values
+        #Q values are obtained from the neural network
+        q_values = myNetwork(state_batch).gather(1, action_batch.long().unsqueeze(1))
+        next_q_values = myNetwork(state_2_batch).max(1)[0].detach()
+        expected_q_values = reward_batch + gamma * next_q_values
 
-    #Updates and others
-    loss = nn.MSELoss()(q_values, expected_q_values.unsqueeze(1))
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
+        #Updates and others
+        loss = nn.MSELoss()(q_values, expected_q_values.unsqueeze(1))
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-    state = state_2
+        state = state_2
 
-    iter += 1
+        iter += 1
