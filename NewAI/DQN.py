@@ -198,10 +198,10 @@ while iter < num_iter:
         minibatch = random.sample(memory_replay, minibatch_size)
 
         #Creating the separate batches
-        state_batch = torch.cat(tuple(d[0] for d in minibatch))
+        state_batch = torch.stack((tuple(d[0] for d in minibatch)),0)
         action_batch = torch.tensor(tuple(d[1] for d in minibatch))
         reward_batch = torch.tensor(tuple(d[2] for d in minibatch))
-        state_1_batch = torch.cat(tuple(d[3] for d in minibatch))
+        state_1_batch = torch.stack((tuple(d[3] for d in minibatch)),0)
 
         if torch.cuda.is_available():
             state_batch = state_batch.to(device)
