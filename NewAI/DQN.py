@@ -165,9 +165,9 @@ reward -= 2
 
 # state = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
 state = torch.Tensor(screenshots)
+
 state = state.unsqueeze(0)
 
-print(f"state: {state.shape}")
 
 while iter < num_iter:
 
@@ -204,13 +204,12 @@ while iter < num_iter:
     
     if len(memory_replay) >= minibatch_size:
         minibatch = random.sample(memory_replay, minibatch_size)
-        print("made it past minibatch size")
         #Creating the separate batches
         state_batch = torch.stack((tuple(d[0] for d in minibatch)),0)
         action_batch = torch.tensor(tuple(d[1] for d in minibatch))
         reward_batch = torch.tensor(tuple(d[2] for d in minibatch))
         state_1_batch = torch.stack((tuple(d[3] for d in minibatch)),0)
-
+        
         if torch.cuda.is_available():
             state_batch = state_batch.to(device)
             action_batch = action_batch.to(device)
