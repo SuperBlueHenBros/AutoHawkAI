@@ -165,7 +165,6 @@ reward -= 2
 
 # state = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
 state = torch.Tensor(screenshots)
-
 print(f"state: {state.shape}")
 
 while iter < num_iter:
@@ -192,6 +191,7 @@ while iter < num_iter:
 
     # state_2 = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
     state_2 = torch.Tensor(screenshots)
+    print(f"state_2: {state_2}")
 
     memory_replay.append((state,action,reward,state_2))
 
@@ -206,7 +206,7 @@ while iter < num_iter:
         action_batch = torch.tensor(tuple(d[1] for d in minibatch))
         reward_batch = torch.tensor(tuple(d[2] for d in minibatch))
         state_1_batch = torch.stack((tuple(d[3] for d in minibatch)),0)
-
+        print(f"state_batch.shape: {state_batch.shape}")
         if torch.cuda.is_available():
             state_batch = state_batch.to(device)
             action_batch = action_batch.to(device)
