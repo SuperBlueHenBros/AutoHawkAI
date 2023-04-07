@@ -165,12 +165,16 @@ reward -= 2
 
 # state = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
 state = torch.Tensor(screenshots)
+state = state.unsqueeze(0)
 
 print(f"state: {state.shape}")
 
 while iter < num_iter:
 
+    
     output = myNetwork(state)
+
+    state = state.squeeze(0)
 
     #Might be able to put action on the gpu as well
     if torch.cuda.is_available():
@@ -200,7 +204,7 @@ while iter < num_iter:
     
     if len(memory_replay) >= minibatch_size:
         minibatch = random.sample(memory_replay, minibatch_size)
-
+        print("made it past minibatch size")
         #Creating the separate batches
         state_batch = torch.stack((tuple(d[0] for d in minibatch)),0)
         action_batch = torch.tensor(tuple(d[1] for d in minibatch))
@@ -212,7 +216,6 @@ while iter < num_iter:
             action_batch = action_batch.to(device)
             reward_batch = reward_batch.to(device)
             state_2_batch = state_1_batch.to(device)
-
 
         #Q values are obtained from the neural network
         q_values = myNetwork(state_batch).gather(1, action_batch.long().unsqueeze(1))
