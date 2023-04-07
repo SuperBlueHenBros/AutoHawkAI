@@ -38,10 +38,13 @@ class Net(nn.Module):
       super(Net, self).__init__()
       self.conv1 = nn.Conv2d(4,32,8,4)
       #self.relu1 = nn.ReLU()
+      self.bn1 = nn.BatchNorm2d(32)
       self.conv2 = nn.Conv2d(32,64,4,2)
       #self.relu2 = nn.ReLU()
+      self.bn2 = nn.BatchNorm2d(64)
       self.conv3 = nn.Conv2d(64,128,3,1)
       #self.relu3 = nn.ReLU()
+      self.bn3 = nn.BatchNorm2d(128)
       #self.flatten = nn.Flatten()
       self.fc1 = nn.Linear(6272, 512)
       #self.relu4 = nn.ReLU()
@@ -58,8 +61,9 @@ class Net(nn.Module):
       x = F.relu(x)
 
       # Flatten x with start_dim=1
-      x = torch.flatten(x)
-     
+      #x = torch.flatten(x)
+      x = x.view(x.size(0), -1) #This line accounts for the batch size the x.size(0) is the batch size
+
       x = self.fc1(x)
       x = F.relu(x)
       x = self.fc2(x)
