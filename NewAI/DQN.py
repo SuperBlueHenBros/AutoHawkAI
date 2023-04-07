@@ -83,7 +83,7 @@ myNetwork.to(device)
 
 #Parameters
 iter = 0
-num_iter = 10
+num_iter = 1000
 num_actions = 4 #Subject to change, depends on game
 replay_size = 1000 
 minibatch_size = 32
@@ -166,11 +166,11 @@ reward -= 2
 # state = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
 state = torch.Tensor(screenshots)
 
-state = state.unsqueeze(0)
 
+# print(f"state: {state.shape}")
 
 while iter < num_iter:
-
+    state = state.unsqueeze(0)
     
     output = myNetwork(state)
 
@@ -196,25 +196,33 @@ while iter < num_iter:
 
     # state_2 = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
     state_2 = torch.Tensor(screenshots)
+    # print(f"state_2: {state_2.shape}")
 
     memory_replay.append((state,action,reward,state_2))
 
+    # print("after memory_replay.append()")
+
     if len(memory_replay) > replay_size:
         memory_replay.pop()
+
+    # print("after memory_replay.pop()")
     
     if len(memory_replay) >= minibatch_size:
+        # print("before minibatch")
         minibatch = random.sample(memory_replay, minibatch_size)
+        # print("after minibatch")
         #Creating the separate batches
+        # print("before state_batch")
         state_batch = torch.stack((tuple(d[0] for d in minibatch)),0)
         action_batch = torch.tensor(tuple(d[1] for d in minibatch))
         reward_batch = torch.tensor(tuple(d[2] for d in minibatch))
-        state_1_batch = torch.stack((tuple(d[3] for d in minibatch)),0)
-        
+        state_2_batch = torch.stack((tuple(d[3] for d in minibatch)),0)
+        # print("after state_1_batch")
         if torch.cuda.is_available():
             state_batch = state_batch.to(device)
             action_batch = action_batch.to(device)
             reward_batch = reward_batch.to(device)
-            state_2_batch = state_1_batch.to(device)
+            state_2_batch = state_2_batch.to(device)
 
         #Q values are obtained from the neural network
         q_values = myNetwork(state_batch).gather(1, action_batch.long().unsqueeze(1))
@@ -230,3 +238,4 @@ while iter < num_iter:
         state = state_2
 
         iter += 1
+# print("while loop done")
