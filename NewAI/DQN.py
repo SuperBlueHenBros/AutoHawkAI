@@ -19,7 +19,10 @@ import mss
 
 def screenshot():
     with mss.mss() as sct:
-        monitor = {"top": 160, "left": 160, "width": 160, "height": 135}
+        monitor = {"top": 30, "left": 600, "width": 1000, "height": 700}
+        #Top = how far from top
+        #Left = how far from left
+        #Width & height = widghtxheight
         #Can lock game screen and add a trim to specific size here
         img = sct.grab(monitor)
         
