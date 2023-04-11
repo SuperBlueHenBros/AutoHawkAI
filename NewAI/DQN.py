@@ -95,7 +95,7 @@ epsilon = 0.4
 gamma = 0.99
 action = 0
 num_of_games = 50000
-num_frames = 1500 # technically true number of frames is this multiplied by 4.5~ (unclear why)
+num_frames = 1000 # technically true number of frames is this multiplied by 4.5~ (unclear why)
 
 
 # setup some basic config info
@@ -177,13 +177,13 @@ common_speed = []
 runs = []
 running_avg = []
 # setup plotting progress
-# matplotlib.pyplot.ion()
-# fig = matplotlib.pyplot.figure()
-# ax = matplotlib.pyplot.subplot(1,1,1)
-# ax.set_xlabel('Episode')
-# ax.set_ylabel('Average Speed')
-# ax.plot(running_avg, common_speed, 'o--', markersize = 1, color='grey')
-# fig.show()
+matplotlib.pyplot.ion()
+fig = matplotlib.pyplot.figure()
+ax = matplotlib.pyplot.subplot(1,1,1)
+ax.set_xlabel('Episode')
+ax.set_ylabel('Average Speed')
+ax.plot(running_avg, common_speed, 'o--', markersize = 1, color='grey')
+fig.show()
 
 
 # print(f"state: {state.shape}")
@@ -214,6 +214,7 @@ for episode in range(num_of_games): #The number of games we want to have it play
         #Frame stacking by pulling image and advancing state 4 times
         reward, screenshots = next_frame(action, frames=4) #doesn't need to get reward each time, the last time is the only one that matters
 
+        episode_speed += reward
         # TODO: don't do this
         reward -= 2
 
@@ -262,6 +263,29 @@ for episode in range(num_of_games): #The number of games we want to have it play
 
             iter += 1
 
+    episode_average = episode_speed / num_frames
+
+    common_speed.append(episode_average)
+    running_avg.append(sum(common_speed) / (episode + 1))
+    runs.append(episode)
+    
     client.conn.load_state()
     logger.info(f"ending episode {episode}/{num_of_games}")
+
+    logger.info(f"episode average: {episode_average}")
+    # matplotlib.pyplot.scatter(episode, episode_average)
+    # matplotlib.pyplot.pause(0.05)
+    # ax.lines[0].set_data(runs, common_speed)
+    ax.lines[0].set_data(runs, running_avg)
+    ax.relim()  
+    ax.autoscale_view() 
+    fig.canvas.flush_events()
+
+    client.conn.load_state()
 # print("while loop done")
+
+logger.info(f"average speed: {sum(common_speed) / len(common_speed)}")
+
+matplotlib.pyplot.show()
+while True:
+    matplotlib.pyplot.pause(0.05)
