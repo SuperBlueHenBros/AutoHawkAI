@@ -171,74 +171,81 @@ state = torch.Tensor(screenshots)
 
 
 # print(f"state: {state.shape}")
+num_of_games = 50000
+num_frames = 480
 
-while iter < num_iter:
-    state = state.unsqueeze(0)
-    
-    output = myNetwork(state)
+for episode in range(num_of_games): #The number of games we want to have it play. 
+    logger.info(f"starting episode {episode}/{num_of_games}")
+    for i in range(num_frames): 
+        state = state.unsqueeze(0)
+        
+        output = myNetwork(state)
 
-    state = state.squeeze(0)
+        state = state.squeeze(0)
 
-    #Might be able to put action on the gpu as well
-    if torch.cuda.is_available():
-        action = action.to(device)
-    
-    #Determining whether the action is random or ideal
-    if np.random.random() < epsilon:
-        action = argmax(output.detach().numpy())
-    else:
-        action = np.random.randint(num_actions)
-    
-    
-    
-    #Frame stacking by pulling image and advancing state 4 times
-    reward, screenshots = next_frame(action, frames=4) #doesn't need to get reward each time, the last time is the only one that matters
-
-    # TODO: don't do this
-    reward -= 2
-
-    # state_2 = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
-    state_2 = torch.Tensor(screenshots)
-    # print(f"state_2: {state_2.shape}")
-
-    memory_replay.append((state,action,reward,state_2))
-
-    # print("after memory_replay.append()")
-
-    if len(memory_replay) > replay_size:
-        memory_replay.pop()
-
-    # print("after memory_replay.pop()")
-    
-    if len(memory_replay) >= minibatch_size:
-        # print("before minibatch")
-        minibatch = random.sample(memory_replay, minibatch_size)
-        # print("after minibatch")
-        #Creating the separate batches
-        # print("before state_batch")
-        state_batch = torch.stack((tuple(d[0] for d in minibatch)),0)
-        action_batch = torch.tensor(tuple(d[1] for d in minibatch))
-        reward_batch = torch.tensor(tuple(d[2] for d in minibatch))
-        state_2_batch = torch.stack((tuple(d[3] for d in minibatch)),0)
-        # print("after state_1_batch")
+        #Might be able to put action on the gpu as well
         if torch.cuda.is_available():
-            state_batch = state_batch.to(device)
-            action_batch = action_batch.to(device)
-            reward_batch = reward_batch.to(device)
-            state_2_batch = state_2_batch.to(device)
+            action = action.to(device)
+        
+        #Determining whether the action is random or ideal
+        if np.random.random() < epsilon:
+            action = argmax(output.detach().numpy())
+        else:
+            action = np.random.randint(num_actions)
+        
+        
+        
+        #Frame stacking by pulling image and advancing state 4 times
+        reward, screenshots = next_frame(action, frames=4) #doesn't need to get reward each time, the last time is the only one that matters
 
-        #Q values are obtained from the neural network
-        q_values = myNetwork(state_batch).gather(1, action_batch.long().unsqueeze(1))
-        next_q_values = myNetwork(state_2_batch).max(1)[0].detach()
-        expected_q_values = reward_batch + gamma * next_q_values
+        # TODO: don't do this
+        reward -= 2
 
-        #Updates and others
-        loss = nn.MSELoss()(q_values, expected_q_values.unsqueeze(1))
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        # state_2 = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
+        state_2 = torch.Tensor(screenshots)
+        # print(f"state_2: {state_2.shape}")
 
-        state = state_2
+        memory_replay.append((state,action,reward,state_2))
 
-        iter += 1
+        # print("after memory_replay.append()")
+
+        if len(memory_replay) > replay_size:
+            memory_replay.pop()
+
+        # print("after memory_replay.pop()")
+        
+        if len(memory_replay) >= minibatch_size:
+            # print("before minibatch")
+            minibatch = random.sample(memory_replay, minibatch_size)
+            # print("after minibatch")
+            #Creating the separate batches
+            # print("before state_batch")
+            state_batch = torch.stack((tuple(d[0] for d in minibatch)),0)
+            action_batch = torch.tensor(tuple(d[1] for d in minibatch))
+            reward_batch = torch.tensor(tuple(d[2] for d in minibatch))
+            state_2_batch = torch.stack((tuple(d[3] for d in minibatch)),0)
+            # print("after state_1_batch")
+            if torch.cuda.is_available():
+                state_batch = state_batch.to(device)
+                action_batch = action_batch.to(device)
+                reward_batch = reward_batch.to(device)
+                state_2_batch = state_2_batch.to(device)
+
+            #Q values are obtained from the neural network
+            q_values = myNetwork(state_batch).gather(1, action_batch.long().unsqueeze(1))
+            next_q_values = myNetwork(state_2_batch).max(1)[0].detach()
+            expected_q_values = reward_batch + gamma * next_q_values
+
+            #Updates and others
+            loss = nn.MSELoss()(q_values, expected_q_values.unsqueeze(1))
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            state = state_2
+
+            iter += 1
+
+    client.conn.load_state()
+    logger.info(f"ending episode {episode}/{num_of_games}")
 # print("while loop done")
