@@ -94,6 +94,8 @@ memory_replay = []
 epsilon = 0.4
 gamma = 0.99
 action = 0
+num_of_games = 50000
+num_frames = 1500 # technically true number of frames is this multiplied by 4.5~ (unclear why)
 
 
 # setup some basic config info
@@ -169,13 +171,27 @@ reward -= 2
 # state = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
 state = torch.Tensor(screenshots)
 
+# track progress over each run
+episode_speed = 0
+common_speed = []
+runs = []
+running_avg = []
+# setup plotting progress
+# matplotlib.pyplot.ion()
+# fig = matplotlib.pyplot.figure()
+# ax = matplotlib.pyplot.subplot(1,1,1)
+# ax.set_xlabel('Episode')
+# ax.set_ylabel('Average Speed')
+# ax.plot(running_avg, common_speed, 'o--', markersize = 1, color='grey')
+# fig.show()
+
 
 # print(f"state: {state.shape}")
-num_of_games = 50000
-num_frames = 480
 
 for episode in range(num_of_games): #The number of games we want to have it play. 
     logger.info(f"starting episode {episode}/{num_of_games}")
+
+    episode_speed = 0
     for i in range(num_frames): 
         state = state.unsqueeze(0)
         
