@@ -79,7 +79,7 @@ class Net(nn.Module):
 myNetwork = Net()
 
 loss = nn.MSELoss()
-optimizer = torch.optim.Adam(myNetwork.parameters(), lr=1e-3)
+optimizer = torch.optim.Adam(myNetwork.parameters(), lr=1e-5)
 
 #Putting the model on the gpu if it is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -96,6 +96,7 @@ epsilon = 0.2
 gamma = 0.99
 action = 0
 highest_x = 0
+jumpCT = 0
 
 # setup some basic config info
 config_info = middletier.config.check() # data pulled from config.ini
@@ -128,8 +129,8 @@ death = memory_state[memory_map['Players State']] == 11
 #client.send_input('P1 Right', state=True)
 
 #Actual iteration of the AI 
-
 def next_frame(action_index, frames: int = 1): #This is for getting the next frame in the game. We may have the game do the same action for multiple frames.
+    global jumpCT
     images = []
     capture = False
     counter = 0
@@ -141,26 +142,31 @@ def next_frame(action_index, frames: int = 1): #This is for getting the next fra
             client.send_input('P1 Down')
         elif action == 1:
             client.send_input('P1 Left')
-        elif action == 2:
-            client.send_input('P1 Right')
-        elif action == 3:
-            client.send_input('P1 A', state=True)
-            for i in range(8):
-                client.conn.advance_frame()
-            client.send_input('P1 A', state=False)
-            #client.send_input('P1 Right')
-        #elif action == 4:
-        #    client.send_input('P1 A')
+        #elif action == 2:
         #    client.send_input('P1 Right')
+        elif action == 2:
+            client.send_input('P1 A', state=True)
+            #for i in range(10):
+            #client.send_input('P1 A', state=True)
+                #client.conn.advance_frame()
+            #client.send_input('P1 A', state=False)
+            #client.send_input('P1 Right')
+        elif action == 3:
+            #client.send_input('P1 A')
+            client.send_input('P1 Right', state=True)
+            client.send_input('P1 Right', state=False)
         elif action == 4:
             client.send_input('P1 B')
 
-
+        if jumpCT >= 16:
+            client.send_input('P1 A', state=False)
+            jumpCT = 0
+        jumpCT += 1
+        
         client.conn.advance_frame()
+        
         if frame % 2:
-            if counter < 4:
-                images.append(screenshot()) # might need to turn into torch tensor
-                counter += 1
+            images.append(screenshot()) # might need to turn into torch tensor
             
 
     # TODO: JUST TAKE WHAT WE NEED
@@ -215,9 +221,9 @@ while iter < num_iter:
         action = action.to(device)
     
     #Determining whether the action is random or ideal
-    if(iter < 100):
-        action = 2
-    elif np.random.random() < epsilon:
+    #if(iter < 100):
+    #    action = 2
+    if np.random.random() > epsilon:
         action = argmax(output.detach().numpy())
     else:
         action = np.random.randint(num_actions)
