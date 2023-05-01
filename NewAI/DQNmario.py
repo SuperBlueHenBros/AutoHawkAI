@@ -92,10 +92,10 @@ num_actions = 6 #Subject to change, depends on game
 replay_size = 1000 
 minibatch_size = 32
 memory_replay = []
-epsilon = 0.4
+epsilon = 0.2
 gamma = 0.99
 action = 0
-
+highest_x = 0
 
 # setup some basic config info
 config_info = middletier.config.check() # data pulled from config.ini
@@ -131,24 +131,37 @@ death = memory_state[memory_map['Players State']] == 11
 
 def next_frame(action_index, frames: int = 1): #This is for getting the next frame in the game. We may have the game do the same action for multiple frames.
     images = []
+    capture = False
+    counter = 0
     # press (0) and then release (1) the given button
     for frame in range(frames*2):
-        if action == 0: 
-            client.send_input('P1 Up')
-        elif action == 1:
+        #if action == 0: 
+        #    client.send_input('P1 Up')
+        if action == 0:
             client.send_input('P1 Down')
-        elif action == 2:
+        elif action == 1:
             client.send_input('P1 Left')
-        elif action == 3:
+        elif action == 2:
             client.send_input('P1 Right')
+        elif action == 3:
+            client.send_input('P1 A', state=True)
+            for i in range(8):
+                client.conn.advance_frame()
+            client.send_input('P1 A', state=False)
+            #client.send_input('P1 Right')
+        #elif action == 4:
+        #    client.send_input('P1 A')
+        #    client.send_input('P1 Right')
         elif action == 4:
-            client.send_input('P1 A')
-        elif action == 5:
             client.send_input('P1 B')
+
 
         client.conn.advance_frame()
         if frame % 2:
-            images.append(screenshot()) # might need to turn into torch tensor
+            if counter < 4:
+                images.append(screenshot()) # might need to turn into torch tensor
+                counter += 1
+            
 
     # TODO: JUST TAKE WHAT WE NEED
     # loop through each address, read the state of the memory
@@ -166,6 +179,7 @@ def next_frame(action_index, frames: int = 1): #This is for getting the next fra
 #Frame stacking by pulling image and advancing state 4 times
 reward, screenshots = next_frame(action, frames=4) #doesn't need to get reward each time, the last time is the only one that matters
 
+
 # TODO: don't do this
 #reward -= 2
 
@@ -178,21 +192,18 @@ state = torch.Tensor(screenshots)
 #flag = 0
 
 # print(f"state: {state.shape}")
+client.conn.save_state()
+
 
 while iter < num_iter:
-    if death:
-        None #put code for reloading game state (idk how to)
-
+    if (memory_state[memory_map['Players State']] == 11) | (memory_state[memory_map['Players State']] == 6): # death to enemy or game over, does not include falling off map
+        highest_x = 0
+        prev_reward = 0
+        reward = 0
+        client.conn.load_state()
     
     prev_reward = reward
-    #if prev_reward >= reward:
-    #    reward = 0
-    #reward = reward * multiplier
-    #if(reward > 120*multiplier):
-    #    flag = 1
-    #if(reward < 75*multiplier & reward > 5*multiplier & flag == 1):
-    #    multiplier = multiplier+1
-    #    flag = 0
+
     state = state.unsqueeze(0)
     
     output = myNetwork(state)
@@ -204,7 +215,9 @@ while iter < num_iter:
         action = action.to(device)
     
     #Determining whether the action is random or ideal
-    if np.random.random() < epsilon:
+    if(iter < 100):
+        action = 2
+    elif np.random.random() < epsilon:
         action = argmax(output.detach().numpy())
     else:
         action = np.random.randint(num_actions)
@@ -213,13 +226,33 @@ while iter < num_iter:
     
     #Frame stacking by pulling image and advancing state 4 times
     reward, screenshots = next_frame(action, frames=4) #doesn't need to get reward each time, the last time is the only one that matters
+    if reward < 0:
+        reward = 0
+    if reward > highest_x:
+        highest_x = reward
+    elif highest_x == reward:
+        reward = 0
+    elif reward < highest_x:
+        reward = reward - highest_x
 
+
+
+    #highest_x = reward
+    #if reward > prev_reward: #20 now, 15 prev
+    #    reward = reward - prev_reward
+    #    prev_reward = reward
+    #elif reward < prev_reward:
+
+
+    #reward = reward - prev_reward
     # TODO: don't do this
-    reward -= prev_reward
-    print("X Position:")
+    #reward -= prev_reward
+    #print("X Position:")
     print(reward)
-    print("Players State")
-    print(memory_state[memory_map['Players State']])
+    #print("Players State")
+    #print(memory_state[memory_map['Players State']])
+    #print("Highest X Value:")
+    #print(highest_x)
 
     # state_2 = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
     state_2 = torch.Tensor(screenshots)
