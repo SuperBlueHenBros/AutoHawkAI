@@ -20,15 +20,12 @@ import mss
 
 def screenshot():
     with mss.mss() as sct:
-        monitor = {"top": 30, "left": 600, "width": 1000, "height": 700}
+        monitor = {"top": 53, "left": 2, "width": 585, "height": 450}
         #Top = how far from top
         #Left = how far from left
         #Width & height = widghtxheight
         #Can lock game screen and add a trim to specific size here
         img = sct.grab(monitor)
-        
-
-        
 
         img_array = np.array(img)
         img_array = cv2.resize(img_array, (84, 84))
@@ -65,7 +62,6 @@ class Net(nn.Module):
       x = F.relu(x)
 
       # Flatten x with start_dim=1
-      #x = torch.flatten(x)
       x = x.view(x.size(0), -1) #This line accounts for the batch size the x.size(0) is the batch size
 
       x = self.fc1(x)
@@ -97,10 +93,10 @@ gamma = 0.99
 action = 0
 highest_x = 0
 jumpCT = 0
+passed_time = 0
 
 # setup some basic config info
 config_info = middletier.config.check() # data pulled from config.ini
-# print(f"config_info {config_info['directories']['data']}")
 game_path = config_info['directories']['data'] + "/NES/Mariobros.json"     # path to our game info (addreses and such)
 rom_path = config_info['directories']['data'] + "/NES/roms/Super Mario Bros. (JU) (PRG0) [!].nes" # path to our ROM
 
@@ -125,9 +121,6 @@ for map in client.game.mapping:
 
 death = memory_state[memory_map['Players State']] == 11
 
-# client.send_input('P1 A', state=True)
-#client.send_input('P1 Right', state=True)
-
 #Actual iteration of the AI 
 def next_frame(action_index, frames: int = 1): #This is for getting the next frame in the game. We may have the game do the same action for multiple frames.
     global jumpCT
@@ -136,31 +129,22 @@ def next_frame(action_index, frames: int = 1): #This is for getting the next fra
     counter = 0
     # press (0) and then release (1) the given button
     for frame in range(frames*2):
-        #if action == 0: 
-        #    client.send_input('P1 Up')
         if action == 0:
             client.send_input('P1 Down')
         elif action == 1:
             client.send_input('P1 Left')
-        #elif action == 2:
-        #    client.send_input('P1 Right')
         elif action == 2:
             client.send_input('P1 A', state=True)
-            #for i in range(10):
-            #client.send_input('P1 A', state=True)
-                #client.conn.advance_frame()
-            #client.send_input('P1 A', state=False)
-            #client.send_input('P1 Right')
+            jumpCT = 0
         elif action == 3:
-            #client.send_input('P1 A')
-            client.send_input('P1 Right', state=True)
-            client.send_input('P1 Right', state=False)
+            client.send_input('P1 Right')
         elif action == 4:
             client.send_input('P1 B')
 
-        if jumpCT >= 16:
+        if jumpCT >= 28:
             client.send_input('P1 A', state=False)
             jumpCT = 0
+
         jumpCT += 1
         
         client.conn.advance_frame()
@@ -177,38 +161,28 @@ def next_frame(action_index, frames: int = 1): #This is for getting the next fra
             memory_state[addr] = int(read_val.decode('ascii')[1:])
         except AttributeError:
             memory_state[addr] = 0
-
+    
     speed = (memory_state[memory_map['PlayerHorizontal']]*256) + memory_state[memory_map['PlayerX']] #+ (memory_state[memory_map['CurrentScreen']] * 256) #+ memory_state[memory_map['ScreenEdge']]
-   # memory_state[memory_map['PlayerYPos']]-150 + memory_state[memory_map['PlayerXPos']]
     return speed, images
 
 #Frame stacking by pulling image and advancing state 4 times
 reward, screenshots = next_frame(action, frames=4) #doesn't need to get reward each time, the last time is the only one that matters
-
-
-# TODO: don't do this
-#reward -= 2
-
-# [[image1],[image2],[image3],[image4]]
-
-# state = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
 state = torch.Tensor(screenshots)
 
-#multiplier = 1
-#flag = 0
 
-# print(f"state: {state.shape}")
 client.conn.save_state()
-
-
+not_moving = 0
+pit = memory_state[memory_map['VerticalScreenPos']]
 while iter < num_iter:
-    if (memory_state[memory_map['Players State']] == 11) | (memory_state[memory_map['Players State']] == 6): # death to enemy or game over, does not include falling off map
+    passed_time += 0.05
+    if (memory_state[memory_map['Players State']] == 11) | (memory_state[memory_map['Players State']] == 6) | (not_moving >= 100) | (pit >= 4): # death to enemy or game over, does not include falling off map
+        jumpCT = 0
         highest_x = 0
         prev_reward = 0
         reward = 0
+        passed_time = 0
+        not_moving = 0
         client.conn.load_state()
-    
-    prev_reward = reward
 
     state = state.unsqueeze(0)
     
@@ -221,69 +195,43 @@ while iter < num_iter:
         action = action.to(device)
     
     #Determining whether the action is random or ideal
-    #if(iter < 100):
-    #    action = 2
     if np.random.random() > epsilon:
         action = argmax(output.detach().numpy())
     else:
         action = np.random.randint(num_actions)
     
     
-    
     #Frame stacking by pulling image and advancing state 4 times
-    reward, screenshots = next_frame(action, frames=4) #doesn't need to get reward each time, the last time is the only one that matters
+    reward, screenshots = next_frame(action, frames=4)
+    prev_reward = reward
     if reward < 0:
         reward = 0
     if reward > highest_x:
-        highest_x = reward
-    elif highest_x == reward:
-        reward = 0
-    elif reward < highest_x:
+        not_moving = 0
         reward = reward - highest_x
+        highest_x = prev_reward
+    elif highest_x == reward:
+        not_moving += 1
+        reward = -passed_time
+    elif reward < highest_x:
+        not_moving += 1
+        reward = reward - highest_x - passed_time
 
-
-
-    #highest_x = reward
-    #if reward > prev_reward: #20 now, 15 prev
-    #    reward = reward - prev_reward
-    #    prev_reward = reward
-    #elif reward < prev_reward:
-
-
-    #reward = reward - prev_reward
-    # TODO: don't do this
-    #reward -= prev_reward
-    #print("X Position:")
-    print(reward)
-    #print("Players State")
-    #print(memory_state[memory_map['Players State']])
-    #print("Highest X Value:")
-    #print(highest_x)
-
-    # state_2 = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
     state_2 = torch.Tensor(screenshots)
-    # print(f"state_2: {state_2.shape}")
 
     memory_replay.append((state,action,reward,state_2))
-
-    # print("after memory_replay.append()")
 
     if len(memory_replay) > replay_size:
         memory_replay.pop()
 
-    # print("after memory_replay.pop()")
     
     if len(memory_replay) >= minibatch_size:
-        # print("before minibatch")
         minibatch = random.sample(memory_replay, minibatch_size)
-        # print("after minibatch")
-        #Creating the separate batches
-        # print("before state_batch")
+        # Creating the separate batches
         state_batch = torch.stack((tuple(d[0] for d in minibatch)),0)
         action_batch = torch.tensor(tuple(d[1] for d in minibatch))
         reward_batch = torch.tensor(tuple(d[2] for d in minibatch))
         state_2_batch = torch.stack((tuple(d[3] for d in minibatch)),0)
-        # print("after state_1_batch")
         if torch.cuda.is_available():
             state_batch = state_batch.to(device)
             action_batch = action_batch.to(device)
@@ -303,4 +251,3 @@ while iter < num_iter:
 
         state = state_2
         iter += 1
-# print("while loop done")
