@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 import random
 import os
 from os import listdir
-# import numpy as np
 import middletier
 import logging
 import matplotlib.pyplot
@@ -25,10 +24,6 @@ def screenshot():
         #Width & height = widghtxheight
         #Can lock game screen and add a trim to specific size here
         img = sct.grab(monitor)
-        
-
-        
-
         img_array = np.array(img)
         img_array = cv2.resize(img_array, (84, 84))
         img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2GRAY)
@@ -40,27 +35,25 @@ class Net(nn.Module):
     def __init__(self):
       super(Net, self).__init__()
       self.conv1 = nn.Conv2d(4,32,8,4)
-      #self.relu1 = nn.ReLU()
       self.bn1 = nn.BatchNorm2d(32)
       self.conv2 = nn.Conv2d(32,64,4,2)
-      #self.relu2 = nn.ReLU()
       self.bn2 = nn.BatchNorm2d(64)
       self.conv3 = nn.Conv2d(64,128,3,1)
-      #self.relu3 = nn.ReLU()
       self.bn3 = nn.BatchNorm2d(128)
-      #self.flatten = nn.Flatten()
       self.fc1 = nn.Linear(6272, 512)
-      #self.relu4 = nn.ReLU()
       self.fc2 = nn.Linear(512,4)
 
 
     # x represents our data
     def forward(self, x):
       x = self.conv1(x)
+      x = self.bn1(x)
       x = F.relu(x)
       x = self.conv2(x)
+      x = self.bn2(x)
       x = F.relu(x)
       x = self.conv3(x)
+      x = self.bn3(x)  
       x = F.relu(x)
 
       # Flatten x with start_dim=1
@@ -163,12 +156,8 @@ def next_frame(action_index, frames: int = 1): #This is for getting the next fra
 #Frame stacking by pulling image and advancing state 4 times
 reward, screenshots = next_frame(action, frames=4) #doesn't need to get reward each time, the last time is the only one that matters
 
-# TODO: don't do this
 reward -= 2
 
-# [[image1],[image2],[image3],[image4]]
-
-# state = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
 state = torch.Tensor(screenshots)
 
 # track progress over each run
@@ -186,8 +175,6 @@ ax.plot(running_avg, common_speed, 'o--', markersize = 1, color='grey')
 fig.show()
 
 
-# print(f"state: {state.shape}")
-
 for episode in range(num_of_games): #The number of games we want to have it play. 
     logger.info(f"starting episode {episode}/{num_of_games}")
 
@@ -199,7 +186,6 @@ for episode in range(num_of_games): #The number of games we want to have it play
 
         state = state.squeeze(0)
 
-        #Might be able to put action on the gpu as well
         if torch.cuda.is_available():
             action = action.to(device)
         
@@ -220,28 +206,21 @@ for episode in range(num_of_games): #The number of games we want to have it play
 
         # state_2 = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
         state_2 = torch.Tensor(screenshots)
-        # print(f"state_2: {state_2.shape}")
 
         memory_replay.append((state,action,reward,state_2))
 
-        # print("after memory_replay.append()")
 
         if len(memory_replay) > replay_size:
             memory_replay.pop()
 
-        # print("after memory_replay.pop()")
         
         if len(memory_replay) >= minibatch_size:
-            # print("before minibatch")
             minibatch = random.sample(memory_replay, minibatch_size)
-            # print("after minibatch")
             #Creating the separate batches
-            # print("before state_batch")
             state_batch = torch.stack((tuple(d[0] for d in minibatch)),0)
             action_batch = torch.tensor(tuple(d[1] for d in minibatch))
             reward_batch = torch.tensor(tuple(d[2] for d in minibatch))
             state_2_batch = torch.stack((tuple(d[3] for d in minibatch)),0)
-            # print("after state_1_batch")
             if torch.cuda.is_available():
                 state_batch = state_batch.to(device)
                 action_batch = action_batch.to(device)
