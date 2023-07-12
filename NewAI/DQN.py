@@ -3,7 +3,6 @@ from numpy.core.fromnumeric import argmax
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# from torchsummary import summary
 import cv2
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
@@ -56,8 +55,6 @@ class Net(nn.Module):
       x = self.bn3(x)  
       x = F.relu(x)
 
-      # Flatten x with start_dim=1
-      #x = torch.flatten(x)
       x = x.view(x.size(0), -1) #This line accounts for the batch size the x.size(0) is the batch size
 
       x = self.fc1(x)
@@ -195,16 +192,12 @@ for episode in range(num_of_games): #The number of games we want to have it play
         else:
             action = np.random.randint(num_actions)
         
-        
-        
         #Frame stacking by pulling image and advancing state 4 times
         reward, screenshots = next_frame(action, frames=4) #doesn't need to get reward each time, the last time is the only one that matters
 
         episode_speed += reward
-        # TODO: don't do this
         reward -= 2
 
-        # state_2 = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
         state_2 = torch.Tensor(screenshots)
 
         memory_replay.append((state,action,reward,state_2))
@@ -261,7 +254,6 @@ for episode in range(num_of_games): #The number of games we want to have it play
     fig.canvas.flush_events()
 
     client.conn.load_state()
-# print("while loop done")
 
 logger.info(f"average speed: {sum(common_speed) / len(common_speed)}")
 
