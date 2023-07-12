@@ -3,14 +3,12 @@ from numpy.core.fromnumeric import argmax
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# from torchsummary import summary
 import cv2
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import random
 import os
 from os import listdir
-# import numpy as np
 import middletier
 import logging
 import matplotlib.pyplot
@@ -46,9 +44,6 @@ def image_displacement(image1, image2):
     dst_pts = torch.FloatTensor([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
     M, _ = cv2.findHomography(src_pts.numpy(), dst_pts.numpy(), cv2.RANSAC, 5.0)
 
-    
-    
-
     if M is not None:
         # Compute displacement in z direction
         z_disp = M[2, 0] / 8
@@ -57,6 +52,7 @@ def image_displacement(image1, image2):
 
     return torch.tensor([z_disp], dtype=torch.float)
 
+#Getting image data of the game
 def screenshot():
     with mss.mss() as sct:
         monitor = {"top": 240, "left": 725, "width": 580, "height": 255}
@@ -65,14 +61,13 @@ def screenshot():
         #Width & height = widghtxheight
         #Can lock game screen and add a trim to specific size here
         img = sct.grab(monitor)
-        
-
         img_array = np.array(img)
         img_array = cv2.resize(img_array, (84, 84))
         img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2GRAY)
 
     return img_array
 
+#Starts off random and slowly chooses ideal actions more and more
 def calc_epsilon(episode):
     decay = (init_epsilon - end_epsilon) / epsilon_decay
     new_epsilon = max(end_epsilon, init_epsilon - (decay * episode))
@@ -82,31 +77,26 @@ class Net(nn.Module):
     def __init__(self):
       super(Net, self).__init__()
       self.conv1 = nn.Conv2d(4,32,8,4)
-      #self.relu1 = nn.ReLU()
       self.bn1 = nn.BatchNorm2d(32)
       self.conv2 = nn.Conv2d(32,64,4,2)
-      #self.relu2 = nn.ReLU()
       self.bn2 = nn.BatchNorm2d(64)
       self.conv3 = nn.Conv2d(64,128,3,1)
-      #self.relu3 = nn.ReLU()
       self.bn3 = nn.BatchNorm2d(128)
-      #self.flatten = nn.Flatten()
       self.fc1 = nn.Linear(6272, 512)
-      #self.relu4 = nn.ReLU()
       self.fc2 = nn.Linear(512,5)
-
 
     # x represents our data
     def forward(self, x):
       x = self.conv1(x)
+      x = self.bn1(x)
       x = F.relu(x)
       x = self.conv2(x)
+      x = self.bn2(x)
       x = F.relu(x)
       x = self.conv3(x)
+      x = self.bn3(x)
       x = F.relu(x)
 
-      # Flatten x with start_dim=1
-      #x = torch.flatten(x)
       x = x.view(x.size(0), -1) #This line accounts for the batch size the x.size(0) is the batch size
 
       x = self.fc1(x)
@@ -142,7 +132,7 @@ if os.path.isfile('saved_weights.pth'):
     print("target weights loaded")
     TargetNetwork.load_state_dict(myNetwork.state_dict())
 
-#Attempt at implementing game over remedy
+#Attempt at implementing gameover remedy, save just in case
 #if os.path.isfile('GameFin.pt'):
 #    print("Finish game image loaded")
 #    Finish = torch.load('GameFin.pt')
@@ -186,11 +176,8 @@ memory_map = {}
 for map in client.game.mapping:
     memory_map[map['name']] = int(map['address'], base=16)
 
-#client.send_input('P1 A', state=True)
-#client.send_input('P1 B', state=True)
 
 #Actual iteration of the AI 
-
 def next_frame(action_index, frames: int = 1): #This is for getting the next frame in the game. We may have the game do the same action for multiple frames.
     images = []
     # press (0) and then release (1) the given button
@@ -206,7 +193,6 @@ def next_frame(action_index, frames: int = 1): #This is for getting the next fra
         elif action == 4:
             client.send_input('P1 A',state=True)
         #     pass
-
         client.conn.advance_frame()
         client.send_input('P1 A',state=False)
         #if frame % 2:
@@ -230,27 +216,15 @@ def next_frame(action_index, frames: int = 1): #This is for getting the next fra
 reward, screenshots = next_frame(action, frames=4) #doesn't need to get reward each time, the last time is the only one that matters
 
 prev_speed = 0
-# TODO: don't do this
 reward = reward - prev_speed
 
-# [[image1],[image2],[image3],[image4]]
-
-# state = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
 state = torch.Tensor(screenshots)
 
-
-# print(f"state: {state.shape}")
-print(torch.cuda.is_available())
+#print(torch.cuda.is_available())
 
 num_of_games = 50000
 num_frames = 1000
 prev_average = 0
-#last_six_average = []
-#loss_graph = []
-
-#last_six_average.append(0.6)
-
-# track progress over each run
 episode_speed = 0
 common_speed = []
 runs = []
@@ -271,22 +245,18 @@ for episode in range(num_of_games): #The number of games we want to have it play
     episode_speed = 0
     flag = 1
     num_frames = 0
-    #for i in range(num_frames):
     while flag: 
         num_frames += 1
-        #print(reward)
         state = state.unsqueeze(0)
         output = myNetwork(state.to(device))
         state = state.squeeze(0)
 
-        #Might be able to put action on the gpu as well
         if torch.cuda.is_available():
             action = torch.tensor(action).to(device)
     
-
-        #epsilon = calc_epsilon(episode)   
-        epsilon = 0.7
-        
+        epsilon = calc_epsilon(episode)
+        #Below line is for testing
+        #epsilon = 0.7
         
         #Determining whether the action is random or ideal
         if np.random.random() > epsilon:
@@ -294,9 +264,6 @@ for episode in range(num_of_games): #The number of games we want to have it play
         else:
             action = np.random.randint(num_actions)
     
-        
-        
-
         #Frame stacking by pulling image and advancing state 4 times
         reward, screenshots = next_frame(action, frames=4) #doesn't need to get reward each time, the last time is the only one that matters
         
@@ -310,34 +277,24 @@ for episode in range(num_of_games): #The number of games we want to have it play
         # TODO: Maybe use constant to subtract speed from instead
         reward = reward - prev_speed
 
-        # state_2 = torch.stack((screenshots[0], screenshots[1], screenshots[2], screenshots[3]),0)
         state_2 = torch.Tensor(screenshots)
-        # print(f"state_2: {state_2.shape}")
 
         memory_replay.append((state,action,reward,state_2))
 
-        # print("after memory_replay.append()")
-
         if len(memory_replay) > replay_size:
             memory_replay.pop()
-
-        # print("after memory_replay.pop()")
     
         if len(memory_replay) >= minibatch_size:
             
             if num_frames == 32:
                 Finish = state_2[3]
 
-            # print("before minibatch")
             minibatch = random.sample(memory_replay, minibatch_size)
-            # print("after minibatch")
             #Creating the separate batches
-            # print("before state_batch")
             state_batch = torch.stack((tuple(d[0] for d in minibatch)),0)
             action_batch = torch.tensor(tuple(d[1] for d in minibatch))
             reward_batch = torch.tensor(tuple(d[2] for d in minibatch))
             state_2_batch = torch.stack((tuple(d[3] for d in minibatch)),0)
-            # print("after state_1_batch")
             if torch.cuda.is_available():
                 state_batch = state_batch.to(device)
                 action_batch = action_batch.to(device)
@@ -349,19 +306,14 @@ for episode in range(num_of_games): #The number of games we want to have it play
             next_q_values = TargetNetwork(state_2_batch).max(1)[0].detach()
             expected_q_values = reward_batch + gamma * next_q_values
 
-            
             #Updates and others
             loss = nn.MSELoss()(q_values, expected_q_values.unsqueeze(1))
-
-            #Saving losses to show on graph
-            #loss_graph.append(loss.detach().cpu())
-
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             state = state_2
-
+            
             #To save finish screen 
             #if i == 40:
             #    torch.save(state[3],"GameFin.pt")
@@ -371,18 +323,15 @@ for episode in range(num_of_games): #The number of games we want to have it play
                 flag = 0
             prev_speed = reward
             
-    # print("while loop done")
-
     episode_average = episode_speed / num_frames
     
     print(episode_average)
-    #print(max(last_six_average))
     
-
     #saves model
     #if episode_average >= 0.90 * max(last_six_average):
     #    print("weights updated")
     #    torch.save(myNetwork.state_dict(), 'saved_weights.pth')
+    
     print("weights updated")
     torch.save(myNetwork.state_dict(), 'saved_weights.pth')
 
@@ -395,11 +344,6 @@ for episode in range(num_of_games): #The number of games we want to have it play
         print("weights loaded")
         myNetwork.load_state_dict(torch.load('saved_weights.pth'))
 
-    #last_six_average.append(episode_average)
-    #if len(last_six_average) > 1:
-    #    last_six_average.pop(0)
-
-    
     common_speed.append(episode_average)
     running_avg.append(sum(common_speed) / (episode + 1))
     runs.append(episode)
