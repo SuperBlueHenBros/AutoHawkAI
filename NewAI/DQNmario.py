@@ -4,14 +4,12 @@ from numpy.core.fromnumeric import argmax
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# from torchsummary import summary
 import cv2
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import random
 import os
 from os import listdir
-# import numpy as np
 import middletier
 import logging
 import matplotlib.pyplot
@@ -26,7 +24,6 @@ def screenshot():
         #Width & height = widghtxheight
         #Can lock game screen and add a trim to specific size here
         img = sct.grab(monitor)
-
         img_array = np.array(img)
         img_array = cv2.resize(img_array, (84, 84))
         img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2GRAY)
@@ -38,30 +35,26 @@ class Net(nn.Module):
     def __init__(self):
       super(Net, self).__init__()
       self.conv1 = nn.Conv2d(4,32,8,4)
-      #self.relu1 = nn.ReLU()
       self.bn1 = nn.BatchNorm2d(32)
       self.conv2 = nn.Conv2d(32,64,4,2)
-      #self.relu2 = nn.ReLU()
       self.bn2 = nn.BatchNorm2d(64)
       self.conv3 = nn.Conv2d(64,128,3,1)
-      #self.relu3 = nn.ReLU()
       self.bn3 = nn.BatchNorm2d(128)
-      #self.flatten = nn.Flatten()
       self.fc1 = nn.Linear(6272, 512)
-      #self.relu4 = nn.ReLU()
       self.fc2 = nn.Linear(512,6)
-
 
     # x represents our data
     def forward(self, x):
       x = self.conv1(x)
+      x = self.bn1(x)
       x = F.relu(x)
       x = self.conv2(x)
+      x = self.bn2(x)
       x = F.relu(x)
       x = self.conv3(x)
+      x = self.bn3(x)  
       x = F.relu(x)
 
-      # Flatten x with start_dim=1
       x = x.view(x.size(0), -1) #This line accounts for the batch size the x.size(0) is the batch size
 
       x = self.fc1(x)
